@@ -1,0 +1,59 @@
+.hide{
+	display: none;
+}
+
+html body{
+	position: static !important;
+}
+
+.center{
+	text-align: center;
+}
+
+#pledg-button{
+	color: #fff;
+	cursor: pointer;
+    background-color: #2fb5d2;
+    border: 1px solid #2fb5d2;
+    text-transform: uppercase;
+    font-weight: 600;
+    padding: .5rem 1.25rem;
+    margin-bottom: 20px;
+}
+
+#pledg-button:hover{
+	color: #2fb5d2;
+	cursor: pointer;
+    background-color: #fff;
+}
+
+#pledg_form .containerForm{
+	background-color: #F1F1F1;
+	padding: 10px;
+}
+
+#pledg_form .form-row{
+	display: inline-block;
+}
+
+#pledg_form .form-row .card-number{
+	width: 400px;
+}
+
+#pledg_form .form-row input{
+	border: 0px !important;
+	background-color: transparent;
+}
+
+#pledg_form .form-row input:focus{
+	outline-width: 0;
+}
+
+.js-payment-option-form{
+	font-size: .875rem;
+    margin-left: 2.875rem;
+}
+
+#split_payment iframe{
+	box-shadow: 0px 0px 0px transparent
+}
