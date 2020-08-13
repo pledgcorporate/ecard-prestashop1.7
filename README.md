@@ -1,2 +1,2 @@
-# ecard-prestashop1.6
-Pledg Payment plugin for Prestashop 1.6
+# ecard-prestashop1.7
+Pledg Payment plugin for Prestashop 1.7
