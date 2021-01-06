@@ -39,8 +39,7 @@ class PledgIframeModuleFrontController extends ModuleFrontController
             'firstName' => $customer->firstname,            
             'lastName' =>  $customer->lastname,            
             'email' => $customer->email,            
-            'phoneNumber' => $address->phone,            
-            'birthDate' => ( ($customer->birthday != '0000-00-00')? $customer->birthday : date('Y-m-d')),            
+            'phoneNumber' => $address->phone,                       
             'birthCity' => '',            
             'birthStateProvince' => '',            
             'birthCountry' => '',            
@@ -62,6 +61,10 @@ class PledgIframeModuleFrontController extends ModuleFrontController
             ],                        
             'showCloseButton' => true,          
         ];      
+		
+		if ($customer->birthday != '0000-00-00') {
+			$DATA['birthDate'] = $customer->birthday;
+		}
 
         $DATA['metadata'] = json_encode($DATA['metadata']);        
         $DATA['address'] = json_encode($DATA['address']);        
