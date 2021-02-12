@@ -1,59 +1,175 @@
-.hide{
-	display: none;
-}
-
-html body{
-	position: static !important;
-}
-
-.center{
-	text-align: center;
-}
-
-#pledg-button{
-	color: #fff;
-	cursor: pointer;
-    background-color: #2fb5d2;
-    border: 1px solid #2fb5d2;
-    text-transform: uppercase;
-    font-weight: 600;
-    padding: .5rem 1.25rem;
-    margin-bottom: 20px;
-}
-
-#pledg-button:hover{
-	color: #2fb5d2;
-	cursor: pointer;
-    background-color: #fff;
-}
-
-#pledg_form .containerForm{
-	background-color: #F1F1F1;
-	padding: 10px;
-}
-
-#pledg_form .form-row{
-	display: inline-block;
-}
-
-#pledg_form .form-row .card-number{
-	width: 400px;
-}
-
-#pledg_form .form-row input{
-	border: 0px !important;
-	background-color: transparent;
-}
-
-#pledg_form .form-row input:focus{
-	outline-width: 0;
-}
-
-.js-payment-option-form{
-	font-size: .875rem;
-    margin-left: 2.875rem;
-}
-
-#split_payment iframe{
-	box-shadow: 0px 0px 0px transparent
+.hide{
+	display: none;
+}
+
+html body{
+	position: static !important;
+}
+
+.center{
+	text-align: center;
+}
+
+#pledg-button{
+	color: #fff;
+	cursor: pointer;
+    background-color: #2fb5d2;
+    border: 1px solid #2fb5d2;
+    text-transform: uppercase;
+    font-weight: 600;
+    padding: .5rem 1.25rem;
+    margin-bottom: 20px;
+}
+
+#pledg-button:hover{
+	color: #2fb5d2;
+	cursor: pointer;
+    background-color: #fff;
+}
+
+#pledg_form .containerForm{
+	background-color: #F1F1F1;
+	padding: 10px;
+}
+
+#pledg_form .form-row{
+	display: inline-block;
+}
+
+#pledg_form .form-row .card-number{
+	width: 400px;
+}
+
+#pledg_form .form-row input{
+	border: 0px !important;
+	background-color: transparent;
+}
+
+#pledg_form .form-row input:focus{
+	outline-width: 0;
+}
+
+.js-payment-option-form{
+	font-size: .875rem;
+    margin-left: 2.875rem;
+}
+
+#split_payment iframe{
+	box-shadow: 0px 0px 0px transparent
+}
+
+p.payment_module a.pledg:after {
+	display: block;
+	content: "\f054";
+	position: absolute;
+	right: 15px;
+	margin-top: -11px;
+	top: 50%;
+	font-family: "FontAwesome";
+	font-size: 25px;
+	height: 22px;
+	width: 14px;
+	color: #777;
+}
+
+p.payment_module a.pledg:before {
+	display: block;
+	content: "\F09D";
+	position: absolute;
+	left: 15px;
+	margin-top: -11px;
+	top: 50%;
+	font-family: "FontAwesome";
+	font-size: 50px;
+	height: 22px;
+	width: 14px;
+	color: #939393;
+}
+
+.payment_module.pledg {
+	border: 1px solid #d6d4d4;
+	-moz-border-radius: 4px;
+	-webkit-border-radius: 4px;
+	border-radius: 4px;
+	margin-bottom: 10px;
+}
+
+.payment_module.pledg button[id^="installment-button-"] {
+	font-size: 17px;
+	line-height: 23px;
+	color: #333;
+	font-weight: bold;
+	width: 100%;
+	border: none;
+	background: transparent;
+	text-align: left;
+	padding-left: 30px;
+	outline: none;
+}
+
+.payment_module.pledg button:not(.has-icon)[id^="installment-button-"] {
+	padding-top: 30px;
+	padding-bottom: 30px;
+}
+.payment_module.pledg button:not(.has-icon)[id^="installment-button-"] span {
+	margin-left:65px;
+}
+
+.payment_module.pledg button:not(.has-icon)[id^="installment-button-"]:before {
+	display: block;
+	content: "\F09D";
+	position: absolute;
+	/* left: 15px; */
+	/* margin-top: -11px; */
+	/* top: 50%; */
+	font-family: "FontAwesome";
+	font-size: 50px;
+	color: #939393;
+}
+
+.payment_module.pledg button.has-icon[id^="installment-button-"] img {
+	max-height: 75px;
+	max-width: 150px;
+	margin: 10px;
+}
+
+.btnValidationPledgContainer {
+	text-align: center;
+}
+
+.btnValidationPledgContainer button {
+	margin-bottom: 40px;
+}
+
+.pledg-iframe-wrapper iframe {
+	box-shadow: unset!important;
+}
+
+.payment-option label img{
+	max-height: 50px;
+	max-width: 50px;
+}
+
+.payment-option{
+	display: flex;
+	align-items: center;
+}
+
+@keyframes spinner-border {
+  to { transform: rotate(360deg); }
+}
+.spinner-border{
+  display: inline-block;
+  width: 2rem;
+  height: 2rem;
+  vertical-align: text-bottom;
+  border: .25em solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  -webkit-animation: .75s linear infinite spinner-border;
+  animation: .75s linear infinite spinner-border;
+}
+
+.spinner-parent{
+  text-align:center;
 }

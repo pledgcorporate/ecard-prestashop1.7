@@ -1,5 +1,8 @@
 <?php
 
+require_once _PS_MODULE_DIR_ . '/pledg/pledg.php';
+require_once _PS_MODULE_DIR_ . 'pledg/class/PledgpaiementsConfirm.php';
+
 class PledgValidationModuleFrontController extends ModuleFrontController
 {
     /**
@@ -7,12 +10,7 @@ class PledgValidationModuleFrontController extends ModuleFrontController
      */
     public function postProcess()
     {
-        $cart = $this->context->cart;
-        if ($cart->id_customer == 0 || $cart->id_address_delivery == 0 || $cart->id_address_invoice == 0 || !$this->module->active) {
-            Tools::redirect('index.php?controller=order&step=1');
-        }
-
-        // Check that this payment option is still available in case the customer changed his address just before the end of the checkout process
+        // Check if pledg module is activated
         $authorized = false;
         foreach (Module::getPaymentModules() as $module) {
             if ($module['name'] == 'pledg') {
@@ -22,42 +20,58 @@ class PledgValidationModuleFrontController extends ModuleFrontController
         }
 
         if (!$authorized) {
-            die($this->module->l('This payment method is not available.', 'validation'));
+            die($this->module->l('This payment method is not available.'));
         }
 
-        $this->context->smarty->assign([
-            'params' => $_REQUEST,
-        ]);
+        $reference = null;
+        $reference = $_POST['reference'] ?? $_POST['transaction'];
+        Logger::addLog(sprintf($this->module->l('Pledg Payment Validation - Reference payment : %s'),$reference));
 
-        //$this->setTemplate('payment_return.tpl');
-        $this->setTemplate('module:pledg/views/templates/front/payment_return.tpl');
+        if (empty($reference)) {
+            Logger::addLog($this->module->l('Pledg Payment Validation - Reference payment is null'),2);
+        }
 
-
-        $mailVars = array();
-        $currency = $this->context->currency;
-        $total = (float)$cart->getOrderTotal(true, Cart::BOTH);
-
-        $id_customer = $cart->id_customer;
-        $customer = New Customer($id_customer);
-
-        $this->module->validateOrder((int)$cart->id, 2, $total, $this->module->displayName, null, $mailVars, (int)$currency->id, false, $customer->secure_key);
-
-        Tools::redirect('index.php?controller=order-confirmation&id_cart='.(int)$cart->id.'&id_module='.(int)$this->module->id.'&id_order='.$this->module->currentOrder.'&key='.$customer->secure_key);
-
-
-        // $customer = new Customer($cart->id_customer);
-        // if (!Validate::isLoadedObject($customer))
-        //     Tools::redirect('index.php?controller=order&step=1');
-
-        // $currency = $this->context->currency;
-        // $total = (float)$cart->getOrderTotal(true, Cart::BOTH);
-        // $mailVars = array(
-        //     '{bankwire_owner}' => Configuration::get('BANK_WIRE_OWNER'),
-        //     '{bankwire_details}' => nl2br(Configuration::get('BANK_WIRE_DETAILS')),
-        //     '{bankwire_address}' => nl2br(Configuration::get('BANK_WIRE_ADDRESS'))
-        // );
-
-        // $this->module->validateOrder($cart->id, Configuration::get('PS_OS_BANKWIRE'), $total, $this->module->displayName, NULL, $mailVars, (int)$currency->id, false, $customer->secure_key);
-        // Tools::redirect('index.php?controller=order-confirmation&id_cart='.$cart->id.'&id_module='.$this->module->id.'&id_order='.$this->module->currentOrder.'&key='.$customer->secure_key);
+        $cartId = intval(str_replace(Pledg::PLEDG_REFERENCE_PREFIXE, '', $reference));
+        if (!is_int($cartId)) {
+            Logger::addLog(
+                sprintf($this->module->l('Pledg Payment Validation - Reference ID doesn\'t seems to be a associated to a Cart : %s'),
+                    $cartId),
+                2);
+            Tools::redirect('index.php?controller=order&step=1');
+            exit;
+        }
+        
+        $cart = new Cart($cartId);
+        $order = new Order(Order::getIdByCartId((int)$cartId));
+        if (!Validate::isLoadedObject($cart) && !Validate::isLoadedObject($order)) {
+            Logger::addLog(sprintf($this->module->l('Pledg Payment Validation - Cart doesn\t exist : '),$cartId),2);
+            Tools::redirect('index.php?controller=order&step=1');
+        }
+        $currencyIso = Currency::getIsoCodeById($cart->id_currency);
+        $customer = New Customer($cart->id_customer);
+        $priceConverted = $this->context->currentLocale->formatPrice($cart->getOrderTotal(), $currencyIso);
+        if(!Validate::isLoadedObject($order)){
+            $this->module->validateOrder(
+                (int)($cartId),
+                Configuration::get('PLEDG_STATE_WAITING_NOTIFICATION'),
+                $priceConverted,
+                $this->module->name,
+                null,
+                null,
+                null,
+                false,
+                $customer->secure_key
+            );
+        }
+        else{
+            Logger::addLog(sprintf($this->module->l('Pledg Payment Validation - Reference ID has already been validated by notification : %s'),$cartId));
+        }
+        Tools::redirect(
+            'index.php?controller=order-confirmation&id_cart='.
+            (int)$cart->id.
+            '&id_module='. (int)$this->module->id.
+            '&id_order='.$order->id.
+            '&key='.$customer->secure_key
+        );
     }
 }

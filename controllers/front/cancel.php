@@ -1,4 +1,9 @@
 <?php
+/**
+ * Controller appelé lors de l'annulation d'un paiement
+ *
+ * Class PledgCancelModuleFrontController
+ */
 
 class PledgCancelModuleFrontController extends ModuleFrontController
 {
