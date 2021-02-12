@@ -1,74 +1,143 @@
 <?php
 
+require_once _PS_MODULE_DIR_ . '/pledg/pledg.php';
+require_once _PS_MODULE_DIR_ . '/pledg/vendor/autoload.php';
+
 class PledgIframeModuleFrontController extends ModuleFrontController
 {
     public function initContent()
     {
-        parent::initContent();        
-        $cart = $this->context->cart;      
+        parent::initContent();
 
-        if (!$this->module->checkCurrency($cart)) {            
-            Tools::redirect('index.php?controller=order');       
-        }        
+        if (!$this->module->active) {
+            return;
+        }
 
-        $products = $cart->getProducts();        
-        $title = array();        
-        foreach ($products as $product):            
-            array_push($title, $product['name']);       
-        endforeach;        
+        $cart = $this->context->cart;
+        if (!$this->module->checkCurrency($cart)) {
+            return;
+        }
 
-        $id_customer = $cart->id_customer;        
-        $customer = New Customer($id_customer);        
-        $total = str_replace('.', '', number_format($cart->getOrderTotal(), 2, '.', ''));        
-        $id_address_delivery = $cart->id_address_delivery;        
-        $address = new Address($id_address_delivery);        
-        $id_country = $address->id_country;        
-        $country_iso_code = Country::getIsoById($id_country);        
-        $currency = New Currency($cart->id_currency);        
-        $DATA = [            
-            'merchantUid' => $_POST['merchantUid'],            
-            'title' => ( ($title)? implode(', ', $title) : '' ),            
-            'reference' => $cart->id,            
-            'amountCents' => $total,            
-            'currency' =>  $currency->iso_code,            
-            'paymentNotificationUrl' => '',            
-            'metadata'  => [                
-                'departure-date' => date('Y-m-d')            
-            ],            
-            'civility' => ( ($customer->id_gender == 1)? 'Mr' : 'Mme' ),            
-            'firstName' => $customer->firstname,            
-            'lastName' =>  $customer->lastname,            
-            'email' => $customer->email,            
-            'phoneNumber' => $address->phone,                       
-            'birthCity' => '',            
-            'birthStateProvince' => '',            
-            'birthCountry' => '',            
-            'redirectUrl' => $this->context->link->getModuleLink($this->module->name, 'validation', array(), true),            
-            'cancelUrl' => $this->context->link->getModuleLink($this->module->name, 'cancel', array(), true),            
-            'address' => [                
-                'street' => $address->address1,                
-                'city' => $address->city,                
-                'zipcode' => $address->postcode,                
-                'stateProvince' => '',                
-                'country' => $country_iso_code            
-            ],            
-            'shippingAddress' => [                
-                'street' => $address->address1,                
-                'city' => $address->city,                
-                'zipcode' => $address->postcode,                
-                'stateProvince' => '',                
-                'country' => $country_iso_code            
-            ],                        
-            'showCloseButton' => true,          
-        ];      
-		
-		if ($customer->birthday != '0000-00-00') {
-			$DATA['birthDate'] = $customer->birthday;
-		}
+        // Title
+        $products = $cart->getProducts();
+        $title = array();
+        foreach ($products as $product) {
+            array_push($title, $product['name']);
+        }
 
-        $DATA['metadata'] = json_encode($DATA['metadata']);        
-        $DATA['address'] = json_encode($DATA['address']);        
-        $DATA['shippingAddress'] = json_encode($DATA['shippingAddress']);        
-        Tools::redirect($_POST['mode'] . '/purchase?' . http_build_query($DATA));
+        // Customer
+        $id_customer = $cart->id_customer;
+        $customer = New Customer($id_customer);
+
+        $total = str_replace('.', '', number_format($cart->getOrderTotal(), 2, '.', ''));
+        $id_address_delivery = $cart->id_address_delivery;
+        $address = new Address($id_address_delivery);
+        $id_country = $address->id_country;
+        $country_iso_code = Country::getIsoById($id_country);
+
+        // Currency
+        $currency = New Currency($cart->id_currency);
+
+        // Phone E164 Conversion
+        $phone = $address->phone_mobile != '' ? $address->phone_mobile : $address->phone;
+        $phoneUtil = \libphonenumber\PhoneNumberUtil::getInstance();
+        try {
+            $phoneNumber = $phoneUtil->parse($phone, $country_iso_code);
+            $phone = $phoneUtil->format($phoneNumber, \libphonenumber\PhoneNumberFormat::E164);
+        } catch (\libphonenumber\NumberParseException $e) {
+            Logger::addLog(sprintf($this->module->l('Pledg Payment Phone Number Parse error : %s'),($phone)));
+            $phone = '';
+        }
+
+        $pledgId = $_POST['pledgId'];
+        $sql = 'SELECT p.id, p.merchant_id, p.mode, p.min, p.max, p.priority, p.shops, pl.title, pl.description, p.secret, p.icon
+                FROM ' . _DB_PREFIX_ . Pledgpaiements::$definition['table'] . ' AS p 
+                LEFT JOIN ' . _DB_PREFIX_ . Pledgpaiements::$definition['table'] . '_lang AS pl ON pl.id = p.id
+                WHERE p.status = 1 AND pl.id_lang = ' . $this->context->language->id . ' AND p.id = ' . $pledgId
+                .' ORDER BY p.priority DESC LIMIT 0,1';
+
+        $result = Db::getInstance()->ExecuteS($sql)[0];
+
+        $max = $result['max'];
+        $min = $result['min'];
+        if(($max > 0 && $total > $max*100) || ($min >0 && $total < $min*100)){
+            return;
+        }
+        
+        $forbiddenShops = $result['shops'];
+        $currentShop = $this->context->shop->id;
+        $shops =  explode(',',$forbiddenShops);
+        if(in_array($currentShop, $shops)){
+            return;
+        }
+
+        $metadata = $this->module->create_metadata();
+
+        $paramsPledg = array(
+            'id' => $result['id'],
+            'titlePayment' => $result['title'],
+            'icon' => $result['icon'] != '' && file_exists(_PS_MODULE_DIR_ . $result['icon']) ? _MODULE_DIR_ . $result['icon'] : null,
+            'merchantUid' => $result['merchant_id'],
+            'mode' => (($result['mode'] == 1) ? 'master' : 'staging'),
+            'title' => ( ($title)? implode(', ', $title) : '' ),
+            'reference' => Pledg::PLEDG_REFERENCE_PREFIXE . $cart->id . "_" . time(),
+            'amountCents' => $total,
+            'lang' => str_replace("-", "_", $this->context->language->locale),
+            'countryCode'  => $this->context->country->iso_code,
+            'showCloseButton' => false,
+            'currency' =>  $currency->iso_code,
+            'metadata'  => $metadata,
+            'civility' => ( ($customer->id_gender == 1)? 'Mr' : 'Mme' ),
+            'firstName' => $customer->firstname,
+            'lastName' =>  $customer->lastname,
+            'email' => $customer->email,
+            'phoneNumber' => $phone,
+            'birthDate' => ( ($customer->birthday != '0000-00-00')? $customer->birthday : date('Y-m-d')),
+            'birthCity' => '',
+            'birthStateProvince' => '',
+            'birthCountry' => '',
+            'actionUrl' => $this->context->link->getModuleLink($this->module->name, 'validation', array(), true),
+            'address' => [
+                'street' => $address->address1,
+                'city' => $address->city,
+                'zipcode' => $address->postcode,
+                'stateProvince' => '',
+                'country' => $country_iso_code
+            ],
+            'shippingAddress' => [
+                'street' => $address->address1,
+                'city' => $address->city,
+                'zipcode' => $address->postcode,
+                'stateProvince' => '',
+                'country' => $country_iso_code
+            ],
+        );
+        
+        $paramsPledg['notificationUrl'] =
+            $this->context->link->getModuleLink(
+                $this->module->name,
+                'notification',
+                array(
+                    'pledgPayment' => $result['id'],
+                    'amount' => $total,
+                    'currency' => $currency->iso_code,
+                ),
+                true
+            );
+
+        if (isset($result['secret']) && !empty($result['secret'])) {
+            $paramsPledg['signature'] = \Firebase\JWT\JWT::encode(["data"=>$paramsPledg], $result['secret']);
+        }
+        else{
+            $paramsPledg['metadata'] = json_encode($paramsPledg['metadata']);
+            $paramsPledg['address'] = json_encode($paramsPledg['address']);
+            $paramsPledg['shippingAddress'] = json_encode($paramsPledg['shippingAddress']);
+        }
+        $this->context->smarty->assign([
+            'paramsPledg' => $paramsPledg,
+        ]);
+
+        $this->setTemplate('module:pledg/views/templates/front/iframe.tpl');
+        
     }
 }
