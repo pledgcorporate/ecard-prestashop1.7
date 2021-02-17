@@ -1,2 +1,2 @@
-# ecard-prestashop1.6
-Repo pour prestashop 1.6
+# ecard-prestashop1.7
+Repo pour prestashop 1.7
