@@ -62,6 +62,7 @@
                 civility: "{$paramsPledg.civility}",
                 firstName: "{$paramsPledg.firstName}",
                 lastName: "{$paramsPledg.lastName}",
+                {if $paramsPledg.birthDate && $paramsPledg.birthDate != ''}birthDate: "{$paramsPledg.birthDate}",{/if}
                 email: "{$paramsPledg.email}",
                 countryCode: "{$paramsPledg.countryCode}",
                 metadata: {$paramsPledg.metadata nofilter},

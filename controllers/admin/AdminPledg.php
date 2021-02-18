@@ -256,7 +256,12 @@ class AdminPledgController extends ModuleAdminController
 	{
         if (Tools::isSubmit('submitpledgadmin')) 
 		{
-			$_POST['shops'] = implode(',', Tools::getValue('shops'));
+			if(is_array(Tools::getValue('shops'))){
+                $_POST['shops'] = implode(',', Tools::getValue('shops'));
+            }
+            else{
+                $_POST['shops'] = Tools::getValue('shops');
+            }
  		}
 		parent::postProcess();
 	}
