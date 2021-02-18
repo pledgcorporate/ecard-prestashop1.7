@@ -31,9 +31,13 @@ class PledgIframeModuleFrontController extends ModuleFrontController
 
         $total = str_replace('.', '', number_format($cart->getOrderTotal(), 2, '.', ''));
         $id_address_delivery = $cart->id_address_delivery;
+		$id_address_invoice = $cart->id_address_invoice;
         $address = new Address($id_address_delivery);
+		$address_invoice = new Address($id_address_invoice);
         $id_country = $address->id_country;
+		$id_country_invoice = $address_invoice->id_country;
         $country_iso_code = Country::getIsoById($id_country);
+		$country_iso_code_invoice = Country::getIsoById($id_country_invoice);
 
         // Currency
         $currency = New Currency($cart->id_currency);
@@ -98,11 +102,11 @@ class PledgIframeModuleFrontController extends ModuleFrontController
             'birthCountry' => '',
             'actionUrl' => $this->context->link->getModuleLink($this->module->name, 'validation', array(), true),
             'address' => [
-                'street' => $address->address1,
-                'city' => $address->city,
-                'zipcode' => $address->postcode,
+                'street' => $address_invoice->address1,
+                'city' => $address_invoice->city,
+                'zipcode' => $address_invoice->postcode,
                 'stateProvince' => '',
-                'country' => $country_iso_code
+                'country' => $country_iso_code_invoice
             ],
             'shippingAddress' => [
                 'street' => $address->address1,
