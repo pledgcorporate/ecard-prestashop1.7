@@ -49,7 +49,7 @@ class Pledg extends PaymentModule{
     public function __construct(){
         $this->name = 'pledg';
         $this->tab = 'payments_gateways';
-        $this->version = '2.1.0';
+        $this->version = '2.1.5';
         $this->author = 'LucasFougeras';
         $this->controllers = array('payment', 'validation', 'notification');
         $this->currencies = true;
@@ -58,7 +58,7 @@ class Pledg extends PaymentModule{
         $this->displayName = $this->l('Pledg - Split the payment');
         $this->description = $this->l('This module allows you to accept payments by pledg.');
         $this->confirmUninstall = $this->l('Are you sure you want to delete these details?');
-        $this->ps_versions_compliancy = array('min' => '1.7.7', 'max' => _PS_VERSION_);
+        $this->ps_versions_compliancy = array('min' => '1.7.6', 'max' => _PS_VERSION_);
         if (!count(Currency::checkPaymentCurrencies($this->id))) {
             $this->warning = $this->l('No currency has been set for this module.');
         }
@@ -82,7 +82,8 @@ class Pledg extends PaymentModule{
         && $this->registerHook('actionFrontControllerSetMedia')
         && $this->registerHook('actionOrderGridDefinitionModifier')
         && $this->registerHook('actionOrderGridQueryBuilderModifier')
-        && $this->registerHook('displayAdminOrderTabContent');
+        && $this->registerHook('displayAdminOrderTabContent')
+        && $this->registerHook('displayAdminOrderContentOrder');
     }
 
     protected function _installTab()
@@ -114,7 +115,6 @@ class Pledg extends PaymentModule{
                 `mode` int(11) NULL,
                 `position` int(11) NULL,
                 `merchant_id` varchar(255) NULL,
-                `secret` varchar(255) NULL,
                 PRIMARY KEY (`id`)
                 ) ENGINE=" . _MYSQL_ENGINE_ . " DEFAULT CHARSET=utf8;";
         $sqlCreate2 = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ . "pledg_paiements_confirm` (
@@ -124,7 +124,10 @@ class Pledg extends PaymentModule{
                 PRIMARY KEY (`id`)
                 ) ENGINE=" . _MYSQL_ENGINE_ . " DEFAULT CHARSET=utf8;";
 
-        // UPDATE TABLE TO ADD ICON, PRIORITY, MIN AND MAX FIELDS
+        // UPDATE TABLE TO ADD ICON, POSITION, MIN AND MAX FIELDS
+        $sqlCreate3b = "
+            ALTER TABLE `" . _DB_PREFIX_ . "pledg_paiements`
+            ADD `secret` varchar(255) NULL DEFAULT NULL AFTER `merchant_id` ;";
         $sqlCreate3 = "
             ALTER TABLE `" . _DB_PREFIX_ . "pledg_paiements`
             ADD `min` int(11) NULL DEFAULT NULL AFTER `secret` ;";
@@ -137,6 +140,9 @@ class Pledg extends PaymentModule{
         $sqlCreate6 = "
             ALTER TABLE `" . _DB_PREFIX_ . "pledg_paiements`
             ADD `shops` VARCHAR(512) NULL DEFAULT NULL AFTER `icon`;";
+		$sqlCreate7 = "
+            ALTER TABLE `" . _DB_PREFIX_ . "pledg_paiements`
+            ADD `position` int(11) NULL DEFAULT NULL AFTER `shops`;";
 
         $sqlCreateLang = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ . "pledg_paiements_lang` (
               `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
@@ -148,10 +154,24 @@ class Pledg extends PaymentModule{
 
         Db::getInstance()->execute($sqlCreate1);
         Db::getInstance()->execute($sqlCreate2);
-        Db::getInstance()->execute($sqlCreate3);
-        Db::getInstance()->execute($sqlCreate4);
-        Db::getInstance()->execute($sqlCreate5);
-        Db::getInstance()->execute($sqlCreate6);
+		if (!$this->isColumnInDatabase("pledg_paiements", "secret")) { 
+			Db::getInstance()->execute($sqlCreate3b);
+		}
+		if (!$this->isColumnInDatabase("pledg_paiements", "min")) {
+			Db::getInstance()->execute($sqlCreate3);
+		}
+		if (!$this->isColumnInDatabase("pledg_paiements", "max")) {
+			Db::getInstance()->execute($sqlCreate4);
+		}
+		if (!$this->isColumnInDatabase("pledg_paiements", "icon")) {
+			Db::getInstance()->execute($sqlCreate5);
+		}
+		if (!$this->isColumnInDatabase("pledg_paiements", "shops")) {
+			Db::getInstance()->execute($sqlCreate6);
+		}
+		if (!$this->isColumnInDatabase("pledg_paiements", "position")) {
+			Db::getInstance()->execute($sqlCreate7);
+		}
         Db::getInstance()->execute($sqlCreateLang);
         return true;
     }
@@ -196,6 +216,27 @@ class Pledg extends PaymentModule{
         $this->setStateIcons($stateId);
         return true;
     }
+	
+	/**
+     * Check if a column already exists in table
+     *
+     * @param string $tableName
+     * @param string $columnName
+     *
+     * @return bool
+     */
+	private function isColumnInDatabase($tableName, $columnName){
+		$sql = 'DESCRIBE '._DB_PREFIX_.$tableName;        
+		$columns = Db::getInstance()->executeS($sql);
+		$found = false;
+		foreach($columns as $col){
+			if($col['Field']==$columnName){
+				$found = true;
+				break;
+			}
+		}
+		return $found;
+	}
 
     /**
      * Check if Pledg State language already exists in the table ORDER_STATE_LANG_TABLE (from Paypal module)
@@ -415,8 +456,8 @@ class Pledg extends PaymentModule{
             return;
         }
         $order = $params['order'];
-        $currencyIso = Currency::getIsoCodeById($order->id_currency);
-        $priceConverted = $this->context->currentLocale->formatPrice($order->getOrdersTotalPaid(), $currencyIso);
+		$currency = new Currency((int) $order->id_currency);
+        $priceConverted = $this->context->currentLocale->formatPrice($order->getOrdersTotalPaid(), $currency->iso_code);
         $this->smarty->assign(array(
             'total_to_pay' => $priceConverted,
             'status' => 'ok',
@@ -478,28 +519,40 @@ class Pledg extends PaymentModule{
         return '<span class="badge rounded badge-dark">' . $this->l('Pledg Reference : '). $pledgPaimentConfirm->reference_pledg . '</span>';
     }
 
+    public function hookDisplayAdminOrderContentOrder($params) {
+        $order = $params['order'];
+        require_once _PS_MODULE_DIR_ . 'pledg/class/PledgpaiementsConfirm.php';
+        $pledgPaimentConfirm = new PledgpaiementsConfirm(PledgpaiementsConfirm::getByIdCart($order->id_cart));
+        return '<span class="badge rounded badge-dark">' . $this->l('Pledg Reference : '). $pledgPaimentConfirm->reference_pledg . '</span>';
+    }
+
     /**
      *  Function to create metadata
      */
     public function create_metadata() {
         $metadata = [];
-        $metadata['plugin'] = 'prestashop1.6-pledg-plugin_v' . $this->version ;
+        $metadata['plugin'] = 'prestashop1.7-pledg-plugin_v' . $this->version ;
         $metadata['departure-date'] = date('Y-m-d');
         $summaryDetails = $this->context->cart->getSummaryDetails();
 		try
 		{
             $products = $summaryDetails['products'];
             $md_products = [];
+			$md_products_count = 0;
             foreach ($products as $key_product => $product) {
-                $md_product = [];
-                $md_product['id_product'] = $product['id_product'];
-                $md_product['reference'] = $product['reference'];
-				$md_product['type'] = $product['is_virtual'] == "0" ? 'physical' : 'virtual';
-				$md_product['quantity'] = $product['quantity'] ;
-				$md_product['name'] = $product['name'];
-				$md_product['unit_amount_cents'] = intval($product['price_wt']*100);
-				$md_product['category'] = $product['category'];
-				array_push($md_products, $md_product);
+				// Only export the first 5 products in order to avoid enormous JWT tokens !
+				if ($md_products_count < 5) {
+					$md_product = [];
+					$md_product['id_product'] = $product['id_product'];
+					$md_product['reference'] = $product['reference'];
+					$md_product['type'] = $product['is_virtual'] == "0" ? 'physical' : 'virtual';
+					$md_product['quantity'] = $product['quantity'] ;
+					$md_product['name'] = $product['name'];
+					$md_product['unit_amount_cents'] = intval($product['price_wt']*100);
+					$md_product['category'] = $product['category'];
+					array_push($md_products, $md_product);
+					$md_products_count++;
+				}
             }
             $metadata['delivery_mode'] = $summaryDetails['carrier']->name;
             $metadata['delivery_speed'] = $summaryDetails['carrier']->delay;
