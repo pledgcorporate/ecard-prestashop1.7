@@ -29,7 +29,7 @@ class PledgIframeModuleFrontController extends ModuleFrontController
         $id_customer = $cart->id_customer;
         $customer = New Customer($id_customer);
 
-        $total = str_replace('.', '', number_format($cart->getOrderTotal(), 2, '.', ''));
+		$total = str_replace('.', '', number_format($cart->getOrderTotal(), 2, '.', ''));
         $id_address_delivery = $cart->id_address_delivery;
 		$id_address_invoice = $cart->id_address_invoice;
         $address = new Address($id_address_delivery);
@@ -54,11 +54,11 @@ class PledgIframeModuleFrontController extends ModuleFrontController
         }
 
         $pledgId = $_POST['pledgId'];
-        $sql = 'SELECT p.id, p.merchant_id, p.mode, p.min, p.max, p.priority, p.shops, pl.title, pl.description, p.secret, p.icon
+        $sql = 'SELECT p.id, p.merchant_id, p.mode, p.min, p.max, p.position, p.shops, pl.title, pl.description, p.secret, p.icon
                 FROM ' . _DB_PREFIX_ . Pledgpaiements::$definition['table'] . ' AS p 
                 LEFT JOIN ' . _DB_PREFIX_ . Pledgpaiements::$definition['table'] . '_lang AS pl ON pl.id = p.id
                 WHERE p.status = 1 AND pl.id_lang = ' . $this->context->language->id . ' AND p.id = ' . $pledgId
-                .' ORDER BY p.priority DESC LIMIT 0,1';
+                .' ORDER BY p.position DESC LIMIT 0,1';
 
         $result = Db::getInstance()->ExecuteS($sql)[0];
 
@@ -96,7 +96,6 @@ class PledgIframeModuleFrontController extends ModuleFrontController
             'lastName' =>  $customer->lastname,
             'email' => $customer->email,
             'phoneNumber' => $phone,
-            'birthDate' => ( ($customer->birthday != '0000-00-00')? $customer->birthday : date('Y-m-d')),
             'birthCity' => '',
             'birthStateProvince' => '',
             'birthCountry' => '',
@@ -117,6 +116,10 @@ class PledgIframeModuleFrontController extends ModuleFrontController
             ],
         );
         
+        if($customer->birthday != '0000-00-00'){
+            $paramsPledg['birthDate'] = $customer->birthday;
+        }
+
         $paramsPledg['notificationUrl'] =
             $this->context->link->getModuleLink(
                 $this->module->name,

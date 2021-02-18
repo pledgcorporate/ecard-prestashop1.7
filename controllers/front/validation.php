@@ -47,9 +47,9 @@ class PledgValidationModuleFrontController extends ModuleFrontController
             Logger::addLog(sprintf($this->module->l('Pledg Payment Validation - Cart doesn\t exist : '),$cartId),2);
             Tools::redirect('index.php?controller=order&step=1');
         }
-        $currencyIso = Currency::getIsoCodeById($cart->id_currency);
+		$currency = new Currency((int) $cart->id_currency);
         $customer = New Customer($cart->id_customer);
-        $priceConverted = $this->context->currentLocale->formatPrice($cart->getOrderTotal(), $currencyIso);
+        $priceConverted = $this->context->currentLocale->formatPrice($cart->getOrderTotal(), $currency->iso_code);
         if(!Validate::isLoadedObject($order)){
             $this->module->validateOrder(
                 (int)($cartId),
